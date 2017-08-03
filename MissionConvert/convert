@@ -1,0 +1,56 @@
+import numpy as np
+import utm
+import random
+
+
+def fetch_photo_waypoints(data):
+    photo_waypoints = []
+    for i in range(len(data)):
+        row = data[i, :]
+        command_type = row[3]
+        if command_type == 16:  # waypoint
+            photo_waypoints.append(row)
+
+    return np.array(photo_waypoints)
+
+
+filename = "test_utah_1.waypoints"
+vertical_fov = 24.81484 #a6000 35mm
+origin_lat = 40.0044 #SW corner of DEM
+origin_lon = -111.815
+origin_x, origin_y, zone, letter = utm.from_latlon(origin_lat,origin_lon)
+data = np.genfromtxt(filename,skip_header=1)
+
+home_alt = data[0,10]
+
+data = data[1:,:]
+
+data = fetch_photo_waypoints(data)
+
+photo_num = data[:,0]
+photo_lat = data[:,8]
+photo_lon = data[:,9]
+photo_alt = data[:,10]
+
+photo_alt_trans = photo_alt + home_alt
+
+num_photos = len(photo_num)
+photo_x = np.zeros(num_photos)
+photo_y = np.zeros(num_photos)
+
+for i in range(num_photos):
+    photo_x[i], photo_y[i], zone, letter = utm.from_latlon(photo_lat[i], photo_lon[i])
+
+photo_x = photo_x - origin_x
+photo_y = photo_y - origin_y
+photo_z = photo_alt_trans
+
+noise = (np.random.rand(num_photos)-0.5)*0.1
+
+data_out = np.c_[range(num_photos), photo_x, photo_y, photo_z,
+                 np.ones(num_photos)*-90+np.ones(num_photos)*noise, np.ones(num_photos)*noise, np.ones(num_photos)*noise,
+                 np.zeros(num_photos)+vertical_fov]
+
+np.savetxt("cameraPOS.chan", data_out, delimiter=" ")
+
+
