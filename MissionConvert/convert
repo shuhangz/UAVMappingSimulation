@@ -14,10 +14,15 @@ def fetch_photo_waypoints(data):
     return np.array(photo_waypoints)
 
 
-filename = "test_utah_1.waypoints"
+filename = "test_lake2.waypoints"
+ADD_NOISE = False
+
+
+
 vertical_fov = 24.81484 #a6000 35mm
-origin_lat = 40.0044 #SW corner of DEM
-origin_lon = -111.815
+origin_lat = 40.1804 #SW corner of DEM
+origin_lon = -111.681
+yaw = 180
 origin_x, origin_y, zone, letter = utm.from_latlon(origin_lat,origin_lon)
 data = np.genfromtxt(filename,skip_header=1)
 
@@ -49,14 +54,22 @@ noise1 = (np.random.rand(num_photos)-0.5)*0.1
 noise2 = (np.random.rand(num_photos)-0.5)*0.1
 noise3 = (np.random.rand(num_photos)-0.5)*0.1
 
+if ADD_NOISE:
+    data_out = np.c_[range(num_photos), photo_x, photo_y, photo_z,
+                     np.ones(num_photos)*-90+np.ones(num_photos)*noise1, -yaw+np.ones(num_photos)*noise2, np.ones(num_photos)*noise3,
+                     np.zeros(num_photos)+vertical_fov]
 
-data_out = np.c_[range(num_photos), photo_x, photo_y, photo_z,
-                 np.ones(num_photos)*-90+np.ones(num_photos)*noise1, np.ones(num_photos)*noise2, np.ones(num_photos)*noise3,
-                 np.zeros(num_photos)+vertical_fov]
+    pos_out = np.c_[photo_lat, photo_lon, photo_alt,
+                    np.ones(num_photos)*noise1, np.ones(num_photos)*noise2, -yaw+np.ones(num_photos)*noise3,
+                     np.zeros(num_photos)+vertical_fov]
+else:
+    data_out = np.c_[range(num_photos), photo_x, photo_y, photo_z,
+                     np.ones(num_photos) * -90, np.zeros(num_photos)-yaw , np.zeros(num_photos),
+                     np.zeros(num_photos) + vertical_fov]
 
-pos_out = np.c_[photo_lat, photo_lon, photo_alt,
-                np.ones(num_photos)*noise1, np.ones(num_photos)*noise2, np.ones(num_photos)*noise3,
-                 np.zeros(num_photos)+vertical_fov]
+    pos_out = np.c_[photo_lat, photo_lon, photo_alt,
+                    np.zeros(num_photos)-90,np.zeros(num_photos), np.zeros(num_photos)-yaw,
+                    np.zeros(num_photos) + vertical_fov]
 
 np.savetxt("cameraPOS.chan", data_out, delimiter=" ")
 np.savetxt("for_geotag.txt", pos_out, delimiter=" ")
