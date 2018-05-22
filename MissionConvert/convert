@@ -5,24 +5,46 @@ import random
 
 def fetch_photo_waypoints(data):
     photo_waypoints = []
-    for i in range(len(data)):
+    yaw = 0
+    for i in range(len(data)-1):
         row = data[i, :]
+        next_row = data[i+1,:]
         command_type = row[3]
-        if command_type == 16:  # waypoint
+        if command_type == 115: # yaw command
+            yaw = row[4]
+        command_type_next = next_row[3]
+        if command_type == 16 and command_type_next == 203:  # shutter point
+            row = np.append(row,yaw)
             photo_waypoints.append(row)
 
     return np.array(photo_waypoints)
 
 
-filename = "test_lake2.waypoints"
+filename = "sim_utah.txt"
 ADD_NOISE = False
 
 
 
 vertical_fov = 24.81484 #a6000 35mm
-origin_lat = 40.1804 #SW corner of DEM
-origin_lon = -111.681
-yaw = 180
+# vertical_fov = 37.8493 #a7 35mm
+
+
+# #utah lake
+# origin_lat = 40.1804 #SW corner of DEM
+# origin_lon = -111.681
+
+# utah mine
+origin_lat = 40.0044 #SW corner of DEM
+origin_lon = -111.815
+
+# yaw = 266 # utah_2
+# yaw = 90 # utah_mine_all
+# yaw = 172 # 1_6
+# yaw = 164 # 5_30
+yaw = 162 # 6_62
+yaw = 0
+
+
 origin_x, origin_y, zone, letter = utm.from_latlon(origin_lat,origin_lon)
 data = np.genfromtxt(filename,skip_header=1)
 
@@ -32,16 +54,19 @@ data = data[1:,:]
 
 data = fetch_photo_waypoints(data)
 
+photo_yaw = []
 photo_num = data[:,0]
 photo_lat = data[:,8]
 photo_lon = data[:,9]
 photo_alt = data[:,10]
+photo_yaw = data[:,12]
 
 photo_alt_trans = photo_alt + home_alt
 
 num_photos = len(photo_num)
 photo_x = np.zeros(num_photos)
 photo_y = np.zeros(num_photos)
+
 
 for i in range(num_photos):
     photo_x[i], photo_y[i], zone, letter = utm.from_latlon(photo_lat[i], photo_lon[i])
@@ -50,25 +75,32 @@ photo_x = photo_x - origin_x
 photo_y = photo_y - origin_y
 photo_z = photo_alt_trans
 
-noise1 = (np.random.rand(num_photos)-0.5)*0.1
-noise2 = (np.random.rand(num_photos)-0.5)*0.1
-noise3 = (np.random.rand(num_photos)-0.5)*0.1
+noise_pos_x = (np.random.rand(num_photos)-0.5)*0.5
+noise_pos_y = (np.random.rand(num_photos)-0.5)*0.5
+noise_pos_z = (np.random.rand(num_photos)-0.5)*0.7
+
+noise_pos_lat = (np.random.rand(num_photos)-0.5)*9e-6
+noise_pos_lon = (np.random.rand(num_photos)-0.5)*9e-6
+
+noise1 = (np.random.rand(num_photos)-0.5)*5
+noise2 = (np.random.rand(num_photos)-0.5)*5
+noise3 = (np.random.rand(num_photos)-0.5)*5
 
 if ADD_NOISE:
     data_out = np.c_[range(num_photos), photo_x, photo_y, photo_z,
-                     np.ones(num_photos)*-90+np.ones(num_photos)*noise1, -yaw+np.ones(num_photos)*noise2, np.ones(num_photos)*noise3,
+                     np.ones(num_photos)*-90+np.ones(num_photos)*noise1,  -yaw+np.ones(num_photos)*noise2, np.ones(num_photos)*noise3,
                      np.zeros(num_photos)+vertical_fov]
 
-    pos_out = np.c_[photo_lat, photo_lon, photo_alt,
-                    np.ones(num_photos)*noise1, np.ones(num_photos)*noise2, -yaw+np.ones(num_photos)*noise3,
+    pos_out = np.c_[photo_lat+noise_pos_lat, photo_lon+noise_pos_lon, photo_alt+noise_pos_z,
+                    np.ones(num_photos)*noise1, np.ones(num_photos)*noise2,  -yaw+noise3,
                      np.zeros(num_photos)+vertical_fov]
 else:
     data_out = np.c_[range(num_photos), photo_x, photo_y, photo_z,
-                     np.ones(num_photos) * -90, np.zeros(num_photos)-yaw , np.zeros(num_photos),
+                     np.ones(num_photos) * -90, -photo_yaw , np.zeros(num_photos),
                      np.zeros(num_photos) + vertical_fov]
 
     pos_out = np.c_[photo_lat, photo_lon, photo_alt,
-                    np.zeros(num_photos)-90,np.zeros(num_photos), np.zeros(num_photos)-yaw,
+                     np.zeros(num_photos),np.zeros(num_photos),-photo_yaw,
                     np.zeros(num_photos) + vertical_fov]
 
 np.savetxt("cameraPOS.chan", data_out, delimiter=" ")
