@@ -3,15 +3,16 @@ import utm
 import random
 
 
-def fetch_photo_waypoints(data):
+def fetch_photo_waypoints(data, read_yaw=True):
     photo_waypoints = []
     yaw = 0
     for i in range(len(data)-1):
         row = data[i, :]
         next_row = data[i+1,:]
         command_type = row[3]
-        if command_type == 115: # yaw command
-            yaw = row[4]
+        if read_yaw:
+            if command_type == 115: # yaw command
+                yaw = row[4]
         command_type_next = next_row[3]
         if command_type == 16 and command_type_next == 203:  # shutter point
             row = np.append(row,yaw)
@@ -20,9 +21,9 @@ def fetch_photo_waypoints(data):
     return np.array(photo_waypoints)
 
 
-filename = "sim_utah.txt"
+filename = "sim_trad_80_60.waypoints"
 ADD_NOISE = False
-
+READ_YAW = False
 
 
 vertical_fov = 24.81484 #a6000 35mm
@@ -52,18 +53,22 @@ home_alt = data[0,10]
 
 data = data[1:,:]
 
-data = fetch_photo_waypoints(data)
+data = fetch_photo_waypoints(data,read_yaw=True)
 
 photo_yaw = []
 photo_num = data[:,0]
+num_photos = len(photo_num)
 photo_lat = data[:,8]
 photo_lon = data[:,9]
 photo_alt = data[:,10]
-photo_yaw = data[:,12]
+if READ_YAW:
+    photo_yaw = data[:,12]
+else:
+    photo_yaw = np.zeros(num_photos) + yaw
 
 photo_alt_trans = photo_alt + home_alt
 
-num_photos = len(photo_num)
+
 photo_x = np.zeros(num_photos)
 photo_y = np.zeros(num_photos)
 
